@@ -1,0 +1,74 @@
+#! /bin/bash
+
+# File to get the specified username or password (based on the first argument as the credential name
+# and the second as what to retrieve)
+
+if [ -z $CRED_STORE_DIR ]; then
+  CRED_STORE_DIR=~/.testingstore
+fi
+
+if [ -z $CRED_STORE_KEY_FILE]; then
+	CRED_STORE_KEY_FILE=teststore.key
+fi
+
+if [ -z $CRED_STORE_CIPHER]; then
+	CRED_STORE_CIPHER=-aes-256-cbc
+fi
+
+if [ -z $CRED_STORE_ARMOR]; then
+	CRED_STORE_ARMOR=CredStore:
+fi
+
+if [ ! -d $CRED_STORE_DIR ]; then
+  echo "ERROR -- Credential store does not exist.  Run initicred."
+  exit 2
+fi
+
+# The credential name should be the first argument
+if [ -z $1 ]; then
+	echo "Usage: getcred-u <credential_name> [username|password]"
+	exit 2
+fi
+
+CRED_NAME=$1
+
+if [ ! -e $CRED_STORE_DIR/$CRED_NAME.u.enc ]; then
+	echo "Error: Credential $CRED_NAME username file does not exist"
+	exit 2
+fi
+
+if [ ! -e $CRED_STORE_DIR/$CRED_NAME.p.enc ]; then
+	echo "Error: Credential $CRED_NAME password file does not exist"
+	exit 2
+fi
+
+# What to retrieve is the second argument
+
+case $2 in
+	username)
+		TARGET_FILE=$CRED_STORE_DIR/$CRED_NAME.u.enc
+		;;
+
+	password)
+		TARGET_FILE=$CRED_STORE_DIR/$CRED_NAME.p.enc
+		;;
+
+	*)
+		echo  "Usage: getcred-u <credential_name> [username|password]"
+		exit 2
+esac
+
+
+RETRIEVED_CREDENTIAL=`cat $CRED_STORE_DIR/$CRED_STORE_KEY_FILE | openssl enc -d $CRED_STORE_CIPHER -in $TARGET_FILE  -pass stdin`
+
+if [[ $RETRIEVED_CREDENTIAL =~ "$CRED_STORE_ARMOR"* ]] ; then
+   	ACTUAL_CREDENTIAL=${RETRIEVED_CREDENTIAL:${#CRED_STORE_ARMOR}}
+   	echo -n "$ACTUAL_CREDENTIAL"
+   	exit 0
+else
+	echo "Decryption failure for $CRED_NAME $2"
+	exit 2
+fi
+
+echo "Logic problem in getcred-u: unexpected exit"
+exit 1    # Should never actually get here

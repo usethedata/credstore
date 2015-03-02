@@ -1,4 +1,4 @@
-#! /bin/bash
+#! /bin/bash 
 
 # File to prompt the user for the name of a credential, the username, and the password, then 
 # store that in the credential directory using the key present there.
@@ -7,12 +7,47 @@ if [ -z $CRED_STORE_DIR ]; then
   CRED_STORE_DIR=~/.testingstore
 fi
 
-if [! -d $ CRED_STORE_DIR ]; then
-  echo "ERROR -- Credential store does not exist.  Run initicred."
-  exit
+if [ -z $CRED_STORE_KEY_FILE]; then
+	CRED_STORE_KEY_FILE=teststore.key
 fi
 
+if [ -z $CRED_STORE_CIPHER]; then
+	CRED_STORE_CIPHER=-aes-256-cbc
+fi
+
+if [ -z $CRED_STORE_ARMOR]; then
+	CRED_STORE_ARMOR=CredStore:
+fi
+
+if [ ! -d $CRED_STORE_DIR ]; then
+  echo "ERROR -- Credential store does not exist.  Run initicred."
+  exit 2
+fi
+
+
+# Get the name of this credential, the username, and then the password
 read -p "Enter name for credential: " 
-echo    # move to a new line
 CRED_NAME=$REPLY
+
+read -p "Enter username for credential $CRED_USER: " 
+CRED_USER=$REPLY
+
+read -p "Enter password for credential $CRED_USER: " 
+CRED_PASS=$REPLY
+
+# Use the key file in the store directory and create $CRED_NAME.u.enc and $CRED_NAME.p.enc
+
+echo "$CRED_STORE_ARMOR$CRED_USER" >$CRED_STORE_DIR/tmp.u.txt
+cat $CRED_STORE_DIR/$CRED_STORE_KEY_FILE | openssl enc $CRED_STORE_CIPHER -in $CRED_STORE_DIR/tmp.u.txt -out $CRED_STORE_DIR/$CRED_NAME.u.enc  -pass stdin
+srm $CRED_STORE_DIR/tmp.u.txt
+
+echo "$CRED_STORE_ARMOR$CRED_PASS" >$CRED_STORE_DIR/tmp.p.txt
+cat $CRED_STORE_DIR/$CRED_STORE_KEY_FILE | openssl enc $CRED_STORE_CIPHER -in $CRED_STORE_DIR/tmp.p.txt -out $CRED_STORE_DIR/$CRED_NAME.p.enc  -pass stdin
+srm $CRED_STORE_DIR/tmp.p.txt
+
+echo "testing retieval"
+cat $CRED_STORE_DIR/$CRED_STORE_KEY_FILE | openssl enc -d $CRED_STORE_CIPHER -in $CRED_STORE_DIR/$CRED_NAME.u.enc  -pass stdin
+cat $CRED_STORE_DIR/$CRED_STORE_KEY_FILE | openssl enc -d $CRED_STORE_CIPHER -in $CRED_STORE_DIR/$CRED_NAME.p.enc  -pass stdin
+
+exit 0
 
