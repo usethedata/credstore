@@ -1,0 +1,168 @@
+#! /bin/bash
+
+# Set of functions to handle getting and storing credentials used for testing.
+# 
+# Usage: testcred <function> [credential_name] [credential element]
+#   where:
+#     function is init, list, verify, get, or store
+
+SCRIPT_NAME=testcred
+
+# Any of these parameters can be overridden by environmental variables
+if [ -z $CRED_STORE_DIR ]; then
+  CRED_STORE_DIR=~/.testingstore
+fi
+
+if [ -z $CRED_STORE_KEY_LENGTH ]; then
+	CRED_STORE_KEY_LENGTH=256
+fi
+
+if [ -z $CRED_STORE_KEY_FILE]; then
+	CRED_STORE_KEY_FILE=teststore.key
+fi
+
+if [ -z $CRED_STORE_CIPHER]; then
+	CRED_STORE_CIPHER=-aes-256-cbc
+fi
+
+if [ -z $CRED_STORE_ARMOR]; then
+	CRED_STORE_ARMOR=CredStore:
+fi
+
+print_usage() {
+	echo "Usage: $SCRIPT_NAME <init|store|get|list|flush|verify> [credential_name] [credential_element] "
+}
+
+getcred() {
+		# The credential name should be the second argument
+	if [ -z $1 ]; then
+		echo "$SCRIPT_NAME: Error finding credential name in get routine"
+		print_usage
+		exit 2
+	fi
+
+	CRED_NAME=$1
+
+	if [ ! -e $CRED_STORE_DIR/$CRED_NAME.u.enc ]; then
+		echo "Error: Credential $CRED_NAME username file does not exist"
+		exit 2
+	fi
+
+	if [ ! -e $CRED_STORE_DIR/$CRED_NAME.p.enc ]; then
+		echo "Error: Credential $CRED_NAME password file does not exist"
+		exit 2
+	fi
+
+	# What to retrieve is the third argument
+
+	case $2 in
+		username)
+			TARGET_ELEMENT=username
+			TARGET_FILE=$CRED_STORE_DIR/$CRED_NAME.u.enc
+			;;
+
+		password)
+			TARGET_ELEMENT=password
+			TARGET_FILE=$CRED_STORE_DIR/$CRED_NAME.p.enc
+			;;
+
+		*)
+			echo "$SCRIPT_NAME: Error finding credential element in get routine"
+			print_usage
+			exit 2
+	esac
+
+	RETRIEVED_CREDENTIAL=`cat $CRED_STORE_DIR/$CRED_STORE_KEY_FILE | openssl enc -d $CRED_STORE_CIPHER -in $TARGET_FILE  -pass stdin`
+
+	if [[ $RETRIEVED_CREDENTIAL =~ "$CRED_STORE_ARMOR"* ]] ; then
+	   	ACTUAL_CREDENTIAL=${RETRIEVED_CREDENTIAL:${#CRED_STORE_ARMOR}}
+	   	echo -n "$ACTUAL_CREDENTIAL"
+	else
+		echo "Decryption failure for $CRED_NAME $TARGET_ELEMENT"
+		exit 2
+	fi
+}
+
+initcred() {
+	# Check to see if the directory exists
+
+if [ ! -d $CRED_STORE_DIR ] ; then
+   mkdir $CRED_STORE_DIR
+   chmod 700 $CRED_STORE_DIR
+else
+   # directory exists, force the permissions
+   chmod 700 $CRED_STORE_DIR
+fi
+
+# Create a file to be the symmetric encryption key.  
+if [ -e $CRED_STORE_DIR/$CRED_STORE_KEY_FILE ]; then
+    read -p "Credential key file already exists.  Overwrite? [yY]: " 
+    echo 
+    if [[ $REPLY =~ ^[Yy][Ee]*[Ss]* ]]; then
+    	openssl rand -out $CRED_STORE_DIR/$CRED_STORE_KEY_FILE $CRED_STORE_KEY_LENGTH
+    fi
+ else
+ 	openssl rand -out $CRED_STORE_DIR/$CRED_STORE_KEY_FILE $CRED_STORE_KEY_LENGTH
+ fi
+}
+
+storecred() {
+	# Get the name of this credential, the username, and then the password
+	read -p "Enter name for credential: " 
+	CRED_NAME=$REPLY
+
+	read -p "Enter username for credential $CRED_USER: " 
+	CRED_USER=$REPLY
+
+	read -p "Enter password for credential $CRED_USER: " 
+	CRED_PASS=$REPLY
+
+	# Use the key file in the store directory and create $CRED_NAME.u.enc and $CRED_NAME.p.enc
+
+	echo "$CRED_STORE_ARMOR$CRED_USER" >$CRED_STORE_DIR/tmp.u.txt
+	cat $CRED_STORE_DIR/$CRED_STORE_KEY_FILE | openssl enc $CRED_STORE_CIPHER -in $CRED_STORE_DIR/tmp.u.txt -out $CRED_STORE_DIR/$CRED_NAME.u.enc  -pass stdin
+	srm $CRED_STORE_DIR/tmp.u.txt
+
+	echo "$CRED_STORE_ARMOR$CRED_PASS" >$CRED_STORE_DIR/tmp.p.txt
+	cat $CRED_STORE_DIR/$CRED_STORE_KEY_FILE | openssl enc $CRED_STORE_CIPHER -in $CRED_STORE_DIR/tmp.p.txt -out $CRED_STORE_DIR/$CRED_NAME.p.enc  -pass stdin
+	srm $CRED_STORE_DIR/tmp.p.txt
+}
+
+verifystore() {
+	if [ ! -d $CRED_STORE_DIR ]; then
+	  echo "ERROR -- Credential store does not exist.  Run $SCRIPT_NAME init."
+	  exit 2
+	fi
+}
+
+#### Main body
+
+case $1 in 
+	init)
+		initcred
+		exit 0
+		;;
+
+	store)
+		verifystore
+		storecred
+		exit 0
+		;;
+
+	get)
+		ARG_CRED_NAME=$2
+		ARG_CRED_ELEMENT=$3
+		verifystore
+		getcred $ARG_CRED_NAME $ARG_CRED_ELEMENT
+		exit 0
+		;;
+
+	*)
+		print_usage
+		exit 1
+		;;
+esac
+
+# If we get here, something is wrong.
+echo "Logic problem in $SCRIPT_NAME: unexpected exit"
+exit 1    # Should never actually get here
