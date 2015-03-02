@@ -30,7 +30,7 @@ if [ -z $CRED_STORE_ARMOR]; then
 fi
 
 print_usage() {
-	echo "Usage: $SCRIPT_NAME <init|store|get|list|flush|verify> [credential_name] [credential_element] "
+	echo "Usage: $SCRIPT_NAME <init|store|get> [credential_name] [credential_element] "
 }
 
 getcred() {
