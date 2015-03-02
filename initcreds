@@ -1,0 +1,23 @@
+#! /bin/bash
+
+# Script to initialize the creation of the credential store for the test infrastructure.
+#
+# Bruce Wilson (wilsonbe@ornl.gov)
+
+if [ -z $CRED_STORE_DIR ]; then
+  CRED_STORE_DIR=~/.testingstore
+fi
+
+# Check to see if the directory exists
+
+if [ ! -d $CRED_STORE_DIR ] ; then
+   mkdir $CRED_STORE_DIR
+   chmod 700 $CRED_STORE_DIR
+else
+   # directory exists, force the permissions
+   chmod 700 $CRED_STORE_DIR
+fi
+
+# Create a file to be the symmetric encryption key.  256 bits of randomness is good enough.
+# Note that this overwrites any existing key.
+openssl rand -out $CRED_STORE_DIR/ornlteststore.key 256

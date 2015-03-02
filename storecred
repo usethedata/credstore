@@ -1,0 +1,18 @@
+#! /bin/bash
+
+# File to prompt the user for the name of a credential, the username, and the password, then 
+# store that in the credential directory using the key present there.
+
+if [ -z $CRED_STORE_DIR ]; then
+  CRED_STORE_DIR=~/.testingstore
+fi
+
+if [! -d $ CRED_STORE_DIR ]; then
+  echo "ERROR -- Credential store does not exist.  Run initicred."
+  exit
+fi
+
+read -p "Enter name for credential: " 
+echo    # move to a new line
+CRED_NAME=$REPLY
+
