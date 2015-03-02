@@ -121,11 +121,11 @@ storecred() {
 
 	echo "$CRED_STORE_ARMOR$CRED_USER" >$CRED_STORE_DIR/tmp.u.txt
 	cat $CRED_STORE_DIR/$CRED_STORE_KEY_FILE | openssl enc $CRED_STORE_CIPHER -in $CRED_STORE_DIR/tmp.u.txt -out $CRED_STORE_DIR/$CRED_NAME.u.enc  -pass stdin
-	srm $CRED_STORE_DIR/tmp.u.txt
+	shred $CRED_STORE_DIR/tmp.u.txt
 
 	echo "$CRED_STORE_ARMOR$CRED_PASS" >$CRED_STORE_DIR/tmp.p.txt
 	cat $CRED_STORE_DIR/$CRED_STORE_KEY_FILE | openssl enc $CRED_STORE_CIPHER -in $CRED_STORE_DIR/tmp.p.txt -out $CRED_STORE_DIR/$CRED_NAME.p.enc  -pass stdin
-	srm $CRED_STORE_DIR/tmp.p.txt
+	shred $CRED_STORE_DIR/tmp.p.txt
 }
 
 verifystore() {
