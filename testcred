@@ -5,6 +5,11 @@
 # Usage: testcred <function> [credential_name] [credential element]
 #   where:
 #     function is init, list, verify, get, or store
+#
+# Bruce E. Wilson
+# wilsonbe@ornl.gov
+#
+# License: CC0.  No rights reserved and no warranties implied.
 
 SCRIPT_NAME=testcred
 
@@ -30,11 +35,11 @@ if [ -z $CRED_STORE_ARMOR]; then
 fi
 
 print_usage() {
-	echo "Usage: $SCRIPT_NAME <init|store|get> [credential_name] [credential_element] "
+	echo "Usage: $SCRIPT_NAME <init|store|get|verify> [credential_name] [credential_element] "
 }
 
 getcred() {
-		# The credential name should be the second argument
+	# The credential name should be the first argument passed to this function 
 	if [ -z $1 ]; then
 		echo "$SCRIPT_NAME: Error finding credential name in get routine"
 		print_usage
@@ -53,7 +58,7 @@ getcred() {
 		exit 2
 	fi
 
-	# What to retrieve is the third argument
+	# What to retrieve is the second argument passed to this function
 
 	case $2 in
 		username)
@@ -128,6 +133,42 @@ storecred() {
 	shred $CRED_STORE_DIR/tmp.p.txt
 }
 
+verifycredential() {
+	# The credential name should be the first argument passed to this function 
+	if [ -z $1 ]; then
+		echo "$SCRIPT_NAME: Error finding credential name in get routine"
+		print_usage
+		exit 2
+	fi
+
+	CRED_NAME=$1
+
+	if [ ! -e $CRED_STORE_DIR/$CRED_NAME.u.enc ]; then
+		echo "Error: Credential $CRED_NAME username file does not exist"
+		exit 2
+	fi
+
+	if [ ! -e $CRED_STORE_DIR/$CRED_NAME.p.enc ]; then
+		echo "Error: Credential $CRED_NAME password file does not exist"
+		exit 2
+	fi
+
+	RETRIEVED_USERNAME=`cat $CRED_STORE_DIR/$CRED_STORE_KEY_FILE | openssl enc -d $CRED_STORE_CIPHER -in $CRED_STORE_DIR/$CRED_NAME.u.enc -pass stdin`
+	RETRIEVED_PASSWORD=`cat $CRED_STORE_DIR/$CRED_STORE_KEY_FILE | openssl enc -d $CRED_STORE_CIPHER -in $CRED_STORE_DIR/$CRED_NAME.p.enc -pass stdin`
+
+	if [[ ! $RETRIEVED_USERNAME =~ "$CRED_STORE_ARMOR"* ]] ; then
+		echo "Decryption failure for $CRED_NAME $TARGET_ELEMENT"
+		exit 2
+	fi
+
+	if [[ ! $RETRIEVED_PASSWORD =~ "$CRED_STORE_ARMOR"* ]] ; then
+		echo "Decryption failure for $CRED_NAME $TARGET_ELEMENT"
+		exit 2
+	fi
+
+	echo "Credential $CRED_NAME validated successfully."
+}
+
 verifystore() {
 	if [ ! -d $CRED_STORE_DIR ]; then
 	  echo "ERROR -- Credential store does not exist.  Run $SCRIPT_NAME init."
@@ -154,6 +195,13 @@ case $1 in
 		ARG_CRED_ELEMENT=$3
 		verifystore
 		getcred $ARG_CRED_NAME $ARG_CRED_ELEMENT
+		exit 0
+		;;
+
+	verify)
+		ARG_CRED_NAME=$2
+		verifystore
+		verifycredential $ARG_CRED_NAME
 		exit 0
 		;;
 
